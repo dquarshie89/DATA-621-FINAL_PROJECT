@@ -142,7 +142,10 @@ summary(quas_redddf)
 After removing the non significant fields from the model and running the reduced Quasi model the results do not resemble the summary from the training dataset.  
 
 #Conclusion  
-The Poisson model gave the best results in determining a mobile application's succress but it also kept all of the variables from the dataset. 
+The Poisson model gave the best results in determining a mobile application's succress but it also kept all of the variables from the dataset.   
+
+#Appendix  
+Code for this project can be found her: https://github.com/dquarshie89/DATA-621-FINAL_PROJECT/blob/master/AppPrediction.Rmd  
 
 
 
