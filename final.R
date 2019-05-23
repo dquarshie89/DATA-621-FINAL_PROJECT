@@ -10,13 +10,11 @@ library('faraway')
 library('stargazer')
 library('pROC')
 library('stringr')
+library('corrplot')
 
 #Load
 apps_url <- 'https://raw.githubusercontent.com/dquarshie89/Data-621/master/AppleStore.csv'
 apps <- read.csv(apps_url, header=TRUE)
-
-#Make Ratings a Factor
-apps_final$rating_count_tot <- as.factor(apps_final$rating_count_tot)
 
 #Make Is_Game and Target
 apps$isgame <- ifelse(apps$prime_genre == 'Games', 1, 0)
@@ -31,7 +29,8 @@ apps_final <- apps %>%
 apps_final$cont_rating <- unname(sapply(apps_final$cont_rating, str_replace_all, '[+]', ''))
 apps_final$cont_rating <- as.numeric(apps_final$cont_rating)
 
-
+#Correlation plot
+corrplot(cor(apps_final),method='color',tl.cex=.5)  
 
 
 #write.csv(apps_final, 'apps_final.csv', row.names = FALSE)
@@ -84,16 +83,24 @@ quas_red <- glm(rating_count_tot ~  rating_count_ver + lang.num + over_med, data
 summary(quas_red)
 
 
-
 #Results
+summary(app_train$rating_count_tot)
 
-#Run with Poisson Reduced
-finalpreds <- predict(pois, app_test)
-finaldf <- cbind(TARGET_FLAG=exp(finalpreds))
-summary(finaldf)
-summary(app_train)
-hist(apps_final$rating_count_tot)
+#Run with Poisson 
+poispreds <- predict(pois, app_test)
+poisddf <- cbind(TARGET_FLAG=exp(poispreds))
+summary(poisddf)
+
+#Run with Quasi
+quaspreds <- predict(quas, app_test)
+quasddf <- cbind(TARGET_FLAG=quaspreds)
+summary(quasddf)
+
+#Run with Quasi Reduced
+quasredpreds <- predict(quas_red, app_test)
+quas_redddf <- cbind(TARGET_FLAG=(quas_redpreds))
+summary(quas_redddf)
 
 
-write.csv(finaldf, 'final.csv', row.names = FALSE)
+#write.csv(finaldf, 'final.csv', row.names = FALSE)
 

@@ -1,0 +1,149 @@
+---
+title: "DATA 621 Final: Predicting A Mobile Application's Success"
+author: "David Quarshie"
+date: "5/23/2019"
+output: pdf_document
+---
+
+````{r include = FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning = FALSE)
+```  
+
+#Abstract 
+In an effort to see what developers can focus on to get more downloads of their mobile application, this project will use various modeling techniques to predict an application’s success. These models will we built using data about apps on Apple’s and Google’s stores. This will provide a methodology to scientifically predict how well an app will do in either store when certain metrics are improved.    
+
+Keywords: Apps, Apple, Google, Poisson, Quasi   
+
+#Introduction  
+In 2014 Dong Nguyen revealed that his game Flappy Bird was earning an average of $50,000 a day from in-app ads. At that time, Flappy Bird, an addictive and tough game, had been number 1 on the Apple App Store and Google Play Store for almost a month and was gaining more downloads daily. In fact, by January 2014 the app had 50 million downloads, 68,000 reviews, and held the number 1 spot for most downloaded free game in 53 countries.   
+
+With millions of apps available for download today, many app developers could only dream of the success that Flappy Bird saw. So, did Nguyen know how to make an app so successful, and is there any way for us use app statistics to predict the success of an app? Kaggle has a couple of datasets with mobile application statistics that can possibly help us answer these questions. The datasets contain information around Apple apps on the App Store and Google apps on the Play Store; information centered around ratings, app size, installs, and price. Our idea is to take these datasets to see if we can use several regression methods to predict the successfulness of an app.   
+
+#Methodology  
+##Apple  
+###Apple Store Data  
+For this project, data from the Apple store on 7,197 apps was sourced from Kaggle at this site: https://www.kaggle.com/ramamet4/app-store-apple-data-set-10k-apps. The data content on these apps revolved around the apps’ size, price, ratings, genre, and number of supporting devices. However, there is no data around how many times the app was downloaded. As a workaround, this study used the total number of ratings as a measure of how many times the app was downloaded and therefore how successful it is.   
+```{r LoadData}
+library('ggplot2')
+library('MASS')
+library('dplyr')
+library('psych')
+library('DataExplorer')
+library('mice')
+library('car')
+library('caret')
+library('faraway')
+library('stargazer')
+library('pROC')
+library('stringr')
+library('corrplot')
+
+#Load
+apps_url <- 'https://raw.githubusercontent.com/dquarshie89/Data-621/master/AppleStore.csv'
+apps <- read.csv(apps_url, header=TRUE)
+```
+
+##Data Management   
+Thankfully none of the data in the Apple Store dataset was missing. Two new fields were added to the dataset, one to distinguish if the app was a game or not and another to see if the total ratings count for the app was over or under the median of the dataset. For the content rating field the ‘+’ symbol was removed and the field was transformed into an integer. Here’s a summary of the final dataset.  
+
+```{r DataManage}
+#Make Is_Game and Target
+apps$isgame <- ifelse(apps$prime_genre == 'Games', 1, 0)
+apps$over_med <- ifelse(apps$rating_count_tot >= median(apps$rating_count_tot), 1, 0)
+
+#Select Final Fields
+apps_final <- apps %>% 
+  select(size_bytes, price, rating_count_tot, rating_count_ver,	user_rating, user_rating_ver,cont_rating,
+         sup_devices.num,	ipadSc_urls.num,	lang.num, isgame, over_med )
+
+#Make Final Edits
+apps_final$cont_rating <- unname(sapply(apps_final$cont_rating, str_replace_all, '[+]', ''))
+apps_final$cont_rating <- as.numeric(apps_final$cont_rating)
+
+plot_missing(apps_final)
+```
+
+
+###Histogram of Fields  
+```{r Histogram}
+plot_histogram(apps_final)
+```
+
+###Boxplot of Fields  
+```{r Boxplot}
+plot_boxplot(
+  data = apps_final,
+  by = "user_rating")+ 
+  geom_jitter()
+```
+
+
+###Train – Test Split 
+Given that the Apple Store dataset is not conveniently split to do model training, it was split by randomly choosing fifty percent of the data to be in the train set and the remaining data to be in the testing set.  
+
+```{r Split}
+#split for Train and Test
+set.seed(121)
+split <- sample(1:nrow(apps_final), .5*nrow(apps_final))
+app_train <- apps_final[-split,]
+app_test <- apps_final[split,]
+
+#Models
+split2 <- sample(1:nrow(app_train), .8*nrow(app_train))
+holdout <- app_train[-split2,]
+train <- app_train[split2,]
+```
+
+#Results  
+##Correlation  
+Before beginning the data analysis, the correlation plot between the metrics was analyzed to see if there was anything worth noting.  
+
+```{r Correlation}
+corrplot(cor(apps_final),method='color',tl.cex=.5)  
+```  
+
+
+##Ratings Total Summary   
+In order to gauge how well the forthcoming models did in predicting the total number of ratings, here’s the summary of ratings from the train dataset.  
+```{r TrainSummary}
+summary(app_train$rating_count_tot)
+```
+
+
+##Poisson Model  
+The first model ran is a Poisson Model.  
+```{r Poisson}
+#Run with Poisson 
+pois <- glm(rating_count_tot ~ . , data=train, family="poisson")
+summary(pois)
+poispreds <- predict(pois, app_test)
+poisddf <- cbind(TARGET_FLAG=exp(poispreds))
+summary(poisddf)
+```
+Running the Poisson model gave the ouput that every field was statistically significant, so they were all kept for the predictions. The results from this model resembles the train's results.  
+
+##Quasi  
+```{r Quasi}
+#Run with Quasi 
+quas <- glm(rating_count_tot ~ . , data=train, family="quasi")
+summary(quas)
+```  
+Running the Quasi model showed that some fields were not significant so they were taken out.  
+
+
+##Quasi Reduced  
+```{r QuasiReduced}
+quas_red <- glm(rating_count_tot ~  rating_count_ver + lang.num + over_med, data=train, family="quasi")
+summary(quas_red)  
+quas_redpreds <- predict(quas_red, app_test)
+quas_redddf <- cbind(TARGET_FLAG=(quas_redpreds))
+summary(quas_redddf)
+```  
+After removing the non significant fields from the model and running the reduced Quasi model the results do not resemble the summary from the training dataset.  
+
+#Conclusion  
+The Poisson model gave the best results in determining a mobile application's succress but it also kept all of the variables from the dataset. 
+
+
+
+
