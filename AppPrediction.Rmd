@@ -37,6 +37,7 @@ library('stargazer')
 library('pROC')
 library('stringr')
 library('corrplot')
+library('pscl')
 
 #Load
 apps_url <- 'https://raw.githubusercontent.com/dquarshie89/Data-621/master/AppleStore.csv'
@@ -122,27 +123,20 @@ summary(poisddf)
 ```
 Running the Poisson model gave the ouput that every field was statistically significant, so they were all kept for the predictions. The results from this model resembles the train's results.  
 
-##Quasi  
-```{r Quasi}
-#Run with Quasi 
-quas <- glm(rating_count_tot ~ . , data=train, family="quasi")
-summary(quas)
+##Zero Inflated   
+Looking at the data set, we can see that there a large number of zeroes in a lot of fields. A zero inflated count regression should help deal with those.  
+```{r}
+zerodis <- zeroinfl(rating_count_tot ~ . , data=train, dist="poisson")
+#summary(zerodis)
+zeropreds <- predict(zerodis, app_test)
+zerodf <- cbind(TARGET_FLAG=zeropreds)
+summary(zerodf)
 ```  
-Running the Quasi model showed that some fields were not significant so they were taken out.  
+The zero inflated model also resembles the results of the train's results but underestimates the maximum value. Looking at the distribution of the total ratings count in the overall dataset, we can see that there are only six apps with over one million total ratings, so it can be con be concluded that the zero inflated model's max is acceptable.  
 
-
-##Quasi Reduced  
-```{r QuasiReduced}
-quas_red <- glm(rating_count_tot ~  rating_count_ver + lang.num + over_med, data=train, family="quasi")
-summary(quas_red)  
-quas_redpreds <- predict(quas_red, app_test)
-quas_redddf <- cbind(TARGET_FLAG=(quas_redpreds))
-summary(quas_redddf)
-```  
-After removing the non significant fields from the model and running the reduced Quasi model the results do not resemble the summary from the training dataset.  
 
 #Conclusion  
-The Poisson model gave the best results in determining a mobile application's succress but it also kept all of the variables from the dataset.   
+The zero inflated model gave the best results in determining a mobile application's succress. 
 
 #Appendix  
 Code for this project can be found her: https://github.com/dquarshie89/DATA-621-FINAL_PROJECT/blob/master/AppPrediction.Rmd  
