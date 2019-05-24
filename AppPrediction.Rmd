@@ -1,7 +1,7 @@
 ---
 title: "DATA 621 Final: Predicting A Mobile Application's Success"
-author: "David Quarshie"
-date: "5/23/2019"
+author: "Group 3"
+date: "CUNY SPS Spring 2019"
 output: pdf_document
 ---
 
