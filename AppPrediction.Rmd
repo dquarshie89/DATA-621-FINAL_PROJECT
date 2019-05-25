@@ -132,11 +132,193 @@ zeropreds <- predict(zerodis, app_test)
 zerodf <- cbind(TARGET_FLAG=zeropreds)
 summary(zerodf)
 ```  
-The zero inflated model also resembles the results of the train's results but underestimates the maximum value. Looking at the distribution of the total ratings count in the overall dataset, we can see that there are only six apps with over one million total ratings, so it can be con be concluded that the zero inflated model's max is acceptable.  
+The zero inflated model also resembles the results of the train's results but underestimates the maximum value. Looking at the distribution of the total ratings count in the overall dataset, we can see that there are only six apps with over one million total ratings, so it can be con be concluded that the zero inflated model's max is acceptable.    
+
+The zero inflated model gave the best results in determining a mobile application's succress. 
+
+##Google Play Store  
+This project also investegated what makes an app successful on the Google Play Store. This data was also taken from Kaggle and has 10,839 apps with 14 fields. This data contains similar information as the Apple store data but it also includes how many time the app has been downloaded.   
+```{r GoogleData}
+google <- read.csv("https://raw.githubusercontent.com/dquarshie89/DATA-621-FINAL_PROJECT/master/googleplaystore.csv",header = TRUE)
+
+#save column names
+data_columns <-colnames(google)
+
+column_desc <- c("Application name","Category the app belongs to",
+                 "Overall user rating of the app (as when scraped)","Number of user reviews for the app (as when scraped)",
+                 "Size of the app (as when scraped)","Number of user downloads/installs for the app (as when scraped)",
+                 "Paid or Free","Price of the app (as when scraped)",
+                 "Age group the app is targeted at - Children / Mature 21+ / Adult","An app can belong to multiple genres (apart from its main category)","Date when the app was last updated on Play Store (as when scraped)",
+                 "Current version of the app available on Play Store (as when scraped)","Min required Android version (as when scraped)")
+
+
+col_desc <- data.frame(data_columns, column_desc)
+
+#Data information
+colnames(col_desc) <- c("Columns","Description")
+
+google_clean <- read.csv("https://raw.githubusercontent.com/dquarshie89/DATA-621-FINAL_PROJECT/master/googleplaystore_clean.csv",header = TRUE)
+#Categories of the apps
+unique(google_clean$Category)
+
+summary(google_clean)
+```  
+
+###Data Management 
+There's a lot of missing Rating data and the $ sign has to be removed from the Price field. 
+```{r GoogleDataManage}
+#select variables
+google_clean <- google_clean %>%  select(App, Category, Rating, Reviews, size_adjusted, Installs, Type, Price, Content.Rating, Genres)
+google_clean <-google_clean %>% distinct(App,.keep_all = TRUE)
+head(google_clean)
+plot_missing(google_clean)
+```  
+```{r CleanPrice}
+google_clean <- google_clean %>% filter(!is.na(google_clean$Rating))
+google_clean$Price = as.numeric(gsub("\\$", "", google_clean$Price))
+```  
+
+##Target Flag  
+For the analysis of how succesfull an app is on the Google Play store a target falg was put in place to see if an app was downloaded more times than the average of all the apps.  
+```{r Target}
+google_clean$above_avg <- ifelse(google_clean$Rating >= mean(google_clean$Rating, na.rm = TRUE), 1, 0)
+describe(google_clean)
+```  
+##Histogram  
+```{r}
+google_clean %>% filter(Reviews > 20000000)
+plot_histogram(google_clean)
+```  
+##Downloads by Categories  
+```{r Cats}
+google_clean %>%  group_by(Category) %>%  filter(!is.na(Installs)) %>% summarise(meanInstall = mean(Installs)) %>% 
+  ggplot(mapping = aes(x = Category, y = meanInstall)) + geom_col(aes(fill = Category)) + geom_line(group = 1) +  coord_flip() + ggtitle("Average Number of Downloads by Categories") + ylab("Number of Installs") + 
+  guides(fill=FALSE)
+```  
+
+##Reviews by Categories  
+```{r}
+google_clean %>%  group_by(Category) %>%  filter(!is.na(Reviews)) %>% summarise(meanReviews = mean(Reviews)) %>% 
+  ggplot(mapping = aes(x = Category, y = meanReviews)) + geom_col(aes(fill = Category)) + geom_line(group = 1) +  coord_flip() + ggtitle("Average Reviews by Categories") + ylab("Average Reviews") + 
+  guides(fill=FALSE)
+```  
+
+##Ratings by Categories  
+```{r}
+google_clean %>%  group_by(Category) %>%  filter(!is.na(Rating)) %>% summarise(meanRating = mean(Rating)) %>% 
+  ggplot(mapping = aes(x = Category, y = meanRating)) + geom_col(aes(fill = Category)) + geom_line(group = 1) +  coord_flip() + ggtitle("Average Rating by Categories") + ylab("Average Rating") + 
+  guides(fill=FALSE) 
+```  
+
+##Number Above Average by Categories  
+```{r}
+google_clean %>%  group_by(Category) %>%  filter(!is.na(above_avg)) %>% summarise(total_target= sum(above_avg)) %>% 
+  ggplot(mapping = aes(x = Category, y = total_target)) + geom_col(aes(fill = Category)) + geom_line(group = 1) +  coord_flip() + ggtitle("count of Above Average Ratings by Category") + ylab("Average Reviews") + 
+  guides(fill=FALSE)
+```  
+
+##Log View of Downloads by Categories  
+```{r}
+google_clean$install_log <- log(google_clean$Installs+1)
+google_clean$review_log <- log(google_clean$Reviews+1)
+google_clean %>%  group_by(Category) %>%  filter(!is.na(Installs)) %>% summarise(meanInstalls = mean(install_log)) %>% 
+  ggplot(mapping = aes(x = Category, y = meanInstalls)) + geom_col(aes(fill = Category)) + geom_line(group = 1) +  coord_flip() + ggtitle("Average Number of Downloads by Categories") + ylab("Number of Installs") + 
+  guides(fill=FALSE)
+```  
+
+##Train-Test Split   
+Just like the Apple data, the Google data did not come in a training and testing datasets. So this was done by splitting up the total datset.  
+```{r TestSplit}
+set.seed(121)
+#Models
+split <- sample(1:nrow(google_clean), .8*nrow(google_clean))
+experiment <- google_clean[-split,]
+train <- google_clean[split,]
+```  
+
+##Poisson  
+The first model ran was Poisson.  
+```{r PosiGoogle}
+pois <- glm(above_avg ~ install_log + review_log + Type + Category+ Price + Content.Rating, data=train, family="poisson")
+summary(pois)
+```
+
+##Poisson Reduced   
+We removed some fields from the Poisson model that were not significant.  
+```{r PoisRed}
+pois_red <- glm(above_avg ~ install_log + review_log + Category+ Price , data=train, family="poisson")
+summary(pois_red)
+```  
+##Quasi 
+Next a Quasi model was used.  
+```{r Quasi}
+quas <- glm(above_avg ~ install_log + review_log + Type + Category+ Price + Content.Rating, data=train , family="quasi")
+summary(quas)
+```  
+##Quasi Reduced   
+Quasi with removed fields  
+```{r QuasiRed}
+quas_red <- glm(above_avg ~ install_log + review_log  + Category+ Price, data=train , family="quasi")
+summary(quas_red) 
+```  
+
+##Bionmial  
+```{r}
+bino <- glm(above_avg ~ install_log + review_log + Type + Category+ Price + Content.Rating, data=train , family="binomial")
+summary(bino)
+```
+
+##Binomial backward elimination  
+```{r BioRed}
+bino_red <- glm(above_avg ~ install_log + review_log + Category+ Price, data=train , family="binomial")
+summary(bino_red)
+```  
+
+#Google Results  
+##Poisson Results  
+```{r PoisRedGoog}
+#exp(pois_red$coefficients)
+confint.default(pois_red)
+
+poisso_red_red <- predict(pois_red,type = 'response' )
+#summary(poisso_red_red)
+
+train$pois_red <- predict(pois_red, type = 'response')
+table(actual = train$above_avg, pred = round(fitted(pois_red)))
+```  
+
+##Quasi Results  
+```{r QuasRes}
+#exp(quas_red$coefficients)
+confint.default(quas_red)
+
+quasi_red <- predict(quas_red,type = 'response' )
+summary(quasi_red)
+
+train$quas_red <- predict(quas_red, type = 'response')
+table(actual = train$above_avg, pred = round(fitted(quas_red)))
+```  
+
+#Binomial Results  
+```{r BiRes}
+#exp(bino_red$coefficients)
+confint.default(bino_red)
+
+b <- predict(bino_red,type = 'response' )
+#summary(b)
+train$bino_red <- predict(bino_red, type = 'response')
+table(actual = train$above_avg, pred = round(fitted(bino_red)))
+```
+
+For the results we took all of the reduced models and ran them on the test dataset. The Quasi results gave unexpected negavite results and the Posisson had 1 reults with a flag of 2. The Binomial reduced results were closest to the training results.  
+
 
 
 #Conclusion  
-The zero inflated model gave the best results in determining a mobile application's succress. 
+While the Apple store data was difficult to deal with since it did not come with the number of downloads, we were still able to use a zero inflated model to get some predictions. The predictions took into a account that there were not that many apps with ratings in the millions so it had a reasonable max number of ratings, around 500,000.  
+
+The Google Play store data was easier to work with since that did come with a total number of installs. We were abnle to get a lot more visualizations with it and run numerous models. We saw that the Binomial reduced model was the biggest help when trying to predict how many times an app woulf be downloaded.  
+
 
 #Appendix  
 Code for this project can be found her: https://github.com/dquarshie89/DATA-621-FINAL_PROJECT/blob/master/AppPrediction.Rmd  
