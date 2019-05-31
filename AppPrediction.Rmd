@@ -310,14 +310,14 @@ train$bino_red <- predict(bino_red, type = 'response')
 table(actual = train$above_avg, pred = round(fitted(bino_red)))
 ```
 
-For the results we took all of the reduced models and ran them on the test dataset. The Quasi results gave unexpected negavite results and the Posisson had 1 reults with a flag of 2. The Binomial reduced results were closest to the training results.  
+For the results we took all of the reduced models and ran them on the test dataset. The Quasi results gave unexpected negavite results and the Posisson had 1 reults with a flag of 2. The Binomial reduced results had no strange errors. When looking at the accuracy of these models, they all came in at being 67% accurate and predicted that ~53% of apps would be above the average number of downloads.  
 
 
 
 #Conclusion  
 While the Apple store data was difficult to deal with since it did not come with the number of downloads, we were still able to use a zero inflated model to get some predictions. The predictions took into a account that there were not that many apps with ratings in the millions so it had a reasonable max number of ratings, around 500,000.  
 
-The Google Play store data was easier to work with since that did come with a total number of installs. We were abnle to get a lot more visualizations with it and run numerous models. We saw that the Binomial reduced model was the biggest help when trying to predict how many times an app woulf be downloaded.  
+The Google Play store data was easier to work with since that did come with a total number of installs. We were abnle to get a lot more visualizations with it and run numerous models. We saw that the Binomial reduced model was the biggest help when trying to predict how many times an app woulf be downloaded, by not giving any unexpected results.   
 
 
 #Appendix  
